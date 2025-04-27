@@ -55,25 +55,9 @@ public class Main extends JavaPlugin {
 
         marketplaceGUI = new MarketplaceGUI(this, mongoManager, economy);
 
-        SellCommand sellCommand = new SellCommand(this, mongoManager, configManager);
-        Objects.requireNonNull(getCommand("sell")).setExecutor(sellCommand);
-        Objects.requireNonNull(getCommand("sell")).setTabCompleter(sellCommand);
-
-        MarketplaceCommand marketplaceCommand = new MarketplaceCommand(marketplaceGUI);
+        MarketplaceCommand marketplaceCommand = new MarketplaceCommand(this, marketplaceGUI, mongoManager, configManager, economy);
         Objects.requireNonNull(getCommand("marketplace")).setExecutor(marketplaceCommand);
         Objects.requireNonNull(getCommand("marketplace")).setTabCompleter(marketplaceCommand);
-
-        BlackMarketCommand blackMarketCommand = new BlackMarketCommand(marketplaceGUI);
-        Objects.requireNonNull(getCommand("blackmarket")).setExecutor(blackMarketCommand);
-        Objects.requireNonNull(getCommand("blackmarket")).setTabCompleter(blackMarketCommand);
-
-        TransactionsCommand transactionsCommand = new TransactionsCommand(mongoManager);
-        Objects.requireNonNull(getCommand("transactions")).setExecutor(transactionsCommand);
-        Objects.requireNonNull(getCommand("transactions")).setTabCompleter(transactionsCommand);
-
-        AdminCommand adminCommand = new AdminCommand(mongoManager, marketplaceGUI);
-        Objects.requireNonNull(getCommand("marketplace")).setExecutor(adminCommand);
-        Objects.requireNonNull(getCommand("marketplace")).setTabCompleter(adminCommand);
 
         getServer().getPluginManager().registerEvents(new InventoryListener(marketplaceGUI), this);
 

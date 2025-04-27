@@ -92,15 +92,15 @@ public class PlayerData {
     public static class Transaction {
         private final UUID buyer;
         private final UUID seller;
-        private final ItemStack item;
+        private final String serializedItem;
         private final double price;
         private final boolean isBlackMarket;
         private final long timestamp;
 
-        public Transaction(UUID buyer, UUID seller, ItemStack item, double price, boolean isBlackMarket, long timestamp) {
+        public Transaction(UUID buyer, UUID seller, String serializedItem, double price, boolean isBlackMarket, long timestamp) {
             this.buyer = buyer;
             this.seller = seller;
-            this.item = item;
+            this.serializedItem = serializedItem;
             this.price = price;
             this.isBlackMarket = isBlackMarket;
             this.timestamp = timestamp;
@@ -115,7 +115,11 @@ public class PlayerData {
         }
 
         public ItemStack getItem() {
-            return item;
+            return serializedItem != null ? ItemUtils.deserializeItem(serializedItem) : null;
+        }
+
+        public String getSerializedItem() {
+            return serializedItem;
         }
 
         public double getPrice() {
@@ -134,7 +138,7 @@ public class PlayerData {
             return new Document()
                     .append("buyer", buyer.toString())
                     .append("seller", seller.toString())
-                    .append("item", ItemUtils.serializeItem(item))
+                    .append("item", serializedItem)
                     .append("price", price)
                     .append("isBlackMarket", isBlackMarket)
                     .append("timestamp", timestamp);
@@ -144,7 +148,7 @@ public class PlayerData {
             return new Transaction(
                     UUID.fromString(doc.getString("buyer")),
                     UUID.fromString(doc.getString("seller")),
-                    ItemUtils.deserializeItem(doc.getString("item")),
+                    doc.getString("item"),
                     doc.getDouble("price"),
                     doc.getBoolean("isBlackMarket", false),
                     doc.getLong("timestamp")

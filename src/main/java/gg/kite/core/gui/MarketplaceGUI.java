@@ -23,7 +23,6 @@ public class MarketplaceGUI {
     private final Map<UUID, InventoryInfo> openInventories;
     private static final int ITEMS_PER_PAGE = 45;
 
-    // Wrapper class to store inventory metadata
     private static class InventoryInfo {
         private final Inventory inventory;
         private final String title;
@@ -67,7 +66,7 @@ public class MarketplaceGUI {
                 : mongoManager.getActiveListings(page, ITEMS_PER_PAGE);
 
         CompletableFuture<Integer> countFuture = isBlackMarket
-                ? CompletableFuture.supplyAsync(() -> 10) // Black market fixed at 10 items
+                ? CompletableFuture.supplyAsync(() -> 10)
                 : mongoManager.getActiveListingsCount();
 
         CompletableFuture.allOf(listingsFuture, countFuture).thenAccept(v -> {
@@ -82,15 +81,13 @@ public class MarketplaceGUI {
             InventoryInfo info = new InventoryInfo(inv, title, isBlackMarket, page);
             openInventories.put(player.getUniqueId(), info);
 
-            // Clear existing items
             inv.clear();
 
-            // Populate inventory with listings
             for (int i = 0; i < listings.size() && i < ITEMS_PER_PAGE; i++) {
                 Document listing = listings.get(i);
                 ItemStack item = ItemUtils.deserializeItem(listing.getString("item"));
                 if (item == null) {
-                    continue; // Skip invalid items
+                    continue;
                 }
                 double price = listing.getDouble("price");
                 if (isBlackMarket) price *= 0.5; // 50% discount
@@ -106,7 +103,6 @@ public class MarketplaceGUI {
                 inv.setItem(i, item);
             }
 
-            // Add pagination buttons (not for black market)
             if (!isBlackMarket) {
                 if (page > 1) {
                     ItemStack prev = new ItemStack(Material.ARROW);
@@ -168,33 +164,34 @@ public class MarketplaceGUI {
             boolean isBlackMarket = info != null && info.isBlackMarket();
             if (isBlackMarket) price *= 0.5;
 
-            // Schedule ConfirmationGUI creation on the main thread
             double finalPrice = price;
             Bukkit.getScheduler().runTask(plugin, () -> {
-                plugin.getLogger().info("Creating ConfirmationGUI on thread: " + Thread.currentThread().getName());
+
+                if (buyer.getUniqueId().equals(seller)) {
+                    buyer.sendMessage("§cYou cannot purchase your own listing!");
+                    return;
+                }
+
                 new ConfirmationGUI(plugin, buyer, item, finalPrice, () -> {
                     plugin.getLogger().info("Executing purchase logic on thread: " + Thread.currentThread().getName());
-                    // Handle purchase
                     if (!buyer.isOnline()) {
                         buyer.sendMessage("§cYou are no longer online!");
                         return;
                     }
 
-                    // Log the player's balance and the price
+
                     double buyerBalance = economy.getBalance(buyer);
                     plugin.getLogger().info("Player " + buyer.getName() + " balance: $" + buyerBalance + ", Item price: $" + finalPrice);
 
-                    // Economy transaction - Check funds first
                     if (!economy.has(buyer, finalPrice)) {
                         plugin.getLogger().info("Player " + buyer.getName() + " does not have enough money!");
                         buyer.sendMessage("§cYou don't have enough money! Need $" + String.format("%.2f", finalPrice) + ", but you have $" + String.format("%.2f", buyerBalance));
                         return;
                     }
 
-                    // Perform the transaction
                     try {
                         economy.withdrawPlayer(buyer, finalPrice);
-                        economy.depositPlayer(Bukkit.getOfflinePlayer(seller), isBlackMarket ? finalPrice * 2 : finalPrice);
+                        economy.depositPlayer(Bukkit.getOfflinePlayer(seller), finalPrice); // Seller receives what buyer pays
                     } catch (Exception e) {
                         economy.depositPlayer(buyer, finalPrice); // Rollback
                         buyer.sendMessage("§cError processing payment!");
@@ -202,11 +199,13 @@ public class MarketplaceGUI {
                         return;
                     }
 
-                    // Add item to inventory only after successful transaction
                     if (!buyer.getInventory().addItem(item).isEmpty()) {
-                        // Rollback the transaction if inventory is full
                         economy.depositPlayer(buyer, finalPrice);
-                        economy.withdrawPlayer(Bukkit.getOfflinePlayer(seller), isBlackMarket ? finalPrice * 2 : finalPrice);
+                        try {
+                            economy.withdrawPlayer(Bukkit.getOfflinePlayer(seller), finalPrice);
+                        } catch (Exception e) {
+                            plugin.getLogger().severe("Failed to rollback seller payment: " + e.getMessage());
+                        }
                         buyer.sendMessage("§cNot enough inventory space! Transaction cancelled.");
                         return;
                     }
@@ -214,7 +213,6 @@ public class MarketplaceGUI {
                     mongoManager.removeListing(listingId);
                     mongoManager.addTransaction(buyer.getUniqueId(), seller, item, finalPrice, isBlackMarket);
 
-                    // Log to Discord asynchronously
                     CompletableFuture.runAsync(() -> {
                         DiscordWebhook.sendWebhook(plugin.getConfigManager().getDiscordWebhookUrl(),
                                 String.format("Purchase: %s bought %s for $%.2f from %s%s",
@@ -225,8 +223,11 @@ public class MarketplaceGUI {
                                         isBlackMarket ? " (Black Market)" : ""));
                     });
 
+                    double buyerBalanceAfter = economy.getBalance(buyer);
+                    double sellerBalanceAfter = economy.getBalance(Bukkit.getOfflinePlayer(seller));
+                    plugin.getLogger().info("Transaction completed: " + buyer.getName() + " paid $" + finalPrice + " (balance after: $" + buyerBalanceAfter + "), seller " + Bukkit.getOfflinePlayer(seller).getName() + " received $" + finalPrice + " (balance after: $" + sellerBalanceAfter + ")");
+
                     buyer.sendMessage("§aPurchase successful!");
-                    plugin.getLogger().info("Purchase successful for " + buyer.getName() + ": " + item.getType() + " for $" + finalPrice);
                     refreshInventories();
                 });
             });
