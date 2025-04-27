@@ -1,0 +1,40 @@
+name: MarketPlace
+version: '1.0'
+main: gg.kite.core.Main
+api-version: 1.19
+authors: [ KiteGG ]
+website: https://ks.akii.pro
+softdepend: [Vault]
+commands:
+  sell:
+    description: Lists an item for sale in the marketplace
+    usage: /<command> <price>
+    permission: marketplace.sell
+  marketplace:
+    description: Opens the marketplace GUI or performs admin actions
+    usage: /<command> [list|admin <subcommand>]
+    permission: marketplace.view
+  blackmarket:
+    description: Opens the black market GUI with discounted items
+    usage: /<command>
+    permission: marketplace.blackmarket
+  transactions:
+    description: Shows your transaction history
+    usage: /<command> [buy|sell|page] [page]
+    permission: marketplace.history
+permissions:
+  marketplace.sell:
+    description: Allows listing items for sale
+    default: true
+  marketplace.view:
+    description: Allows viewing the marketplace
+    default: true
+  marketplace.blackmarket:
+    description: Allows access to the black market
+    default: op
+  marketplace.history:
+    description: Allows viewing transaction history
+    default: true
+  marketplace.admin:
+    description: Allows use of admin commands
+    default: op

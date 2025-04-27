@@ -1,0 +1,6 @@
+mongodb:
+  connection-string: "mongodb://localhost:27017"
+discord:
+  webhook-url: "https://discord.com/api/webhooks/your-webhook-url"
+marketplace:
+  max-listings-per-player: 10
